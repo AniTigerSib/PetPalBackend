@@ -12,6 +12,7 @@ export default tseslint.config(
   ...tseslint.configs.recommendedTypeChecked,
   eslintPluginPrettierRecommended,
   {
+    ignores: ['/src/migrations/'],
     languageOptions: {
       globals: {
         ...globals.node,
