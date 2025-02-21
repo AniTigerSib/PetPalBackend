@@ -9,7 +9,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Profile } from './users-profile.entity';
-// import { RefreshToken } from 'src/auth/entities/refresh-token.entity';
+import { RefreshToken } from 'src/auth/entities/refresh-token.entity';
 import { OauthAccount } from './oauth-account.entity';
 
 @Entity()
@@ -26,8 +26,14 @@ export class User {
   @Column({ nullable: true, length: 255 }) // NULL for OAuth only users
   passwordHash: string;
 
-  @Column({ nullable: true, length: 100 })
-  fullName: string;
+  // @Column({ nullable: true, length: 100 })
+  // fullName: string;
+
+  @Column({ nullable: true, length: 50 })
+  firstName: string;
+
+  @Column({ nullable: true, length: 50 })
+  lastName: string;
 
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
@@ -35,12 +41,12 @@ export class User {
   @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt: Date;
 
-  @OneToOne(() => Profile)
+  @OneToOne(() => Profile, { onUpdate: 'CASCADE', onDelete: 'SET NULL' })
   @JoinColumn()
   profile: Profile;
 
-  // @OneToMany(() => RefreshToken, (refreshToken) => refreshToken.user)
-  // refreshTokens: RefreshToken[];
+  @OneToMany(() => RefreshToken, (refreshToken) => refreshToken.user)
+  refreshTokens: RefreshToken[];
 
   @OneToMany(() => OauthAccount, (oauthAccount) => oauthAccount.user)
   oauthAccounts: OauthAccount[];

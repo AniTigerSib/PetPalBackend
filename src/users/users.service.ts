@@ -10,11 +10,11 @@ import { User } from './entities/user.entity';
 import { Repository } from 'typeorm';
 import { CreateUserDto } from './dto/create-user.dto';
 import { Profile } from './entities/users-profile.entity';
-import { OauthAccount } from './entities/oauth-account.entity';
+// import { OauthAccount } from './entities/oauth-account.entity';
 import { ProfileDto } from './dto/profile.dto';
-import { UserFromTokenDto } from './dto/user-from-token.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { HashingService } from 'src/common/hashing/hashing.service';
+import { JwtPayloadDto } from 'src/auth/dto/jwt-payload.dto';
 
 @Injectable()
 export class UsersService {
@@ -23,13 +23,13 @@ export class UsersService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Profile)
     private readonly profileRepository: Repository<Profile>,
-    @InjectRepository(OauthAccount)
-    private readonly oauthAccountRepository: Repository<OauthAccount>,
+    // @InjectRepository(OauthAccount)
+    // private readonly oauthAccountRepository: Repository<OauthAccount>,
     private readonly hashingService: HashingService,
   ) {}
   private readonly logger = new Logger('UsersService');
 
-  async findById(id: number): Promise<User | null> {
+  async findUserById(id: number): Promise<User | null> {
     try {
       return await this.userRepository.findOne({
         where: {
@@ -78,7 +78,7 @@ export class UsersService {
     }
   }
 
-  async createUserExtended(createUserDto: CreateUserDto): Promise<User> {
+  async createUserSecure(createUserDto: CreateUserDto): Promise<User> {
     const existingUser = await this.userRepository.findOne({
       where: [
         { username: createUserDto.username },
@@ -100,28 +100,28 @@ export class UsersService {
   }
 
   async updateUser(
-    uft: UserFromTokenDto,
+    token: JwtPayloadDto,
     updateUserDto: UpdateUserDto,
   ): Promise<void> {
     await this.userRepository.update(
       {
-        id: uft.id,
+        id: token.id,
       },
       updateUserDto,
     );
   }
 
-  async createProfile(
-    uft: UserFromTokenDto,
-    profile: ProfileDto,
+  async createProfileSecure(
+    token: JwtPayloadDto,
+    profileDto: ProfileDto,
   ): Promise<Profile> {
-    let user = await this.findUserByUsername(uft.username);
+    let user = await this.findUserById(token.id);
 
     if (!user) {
       this.logger.error(
         'User validated, but not found',
-        'createProfile',
-        `UID: ${uft.id.toString()}`,
+        'createProfileSecure',
+        `UID: ${token.id.toString()}`,
       );
       throw new InternalServerErrorException();
     }
@@ -131,11 +131,76 @@ export class UsersService {
     }
 
     try {
-      let profileDb = this.profileRepository.create(profile);
-      profileDb = await this.profileRepository.save(profileDb);
-      user.profile = profileDb;
+      let profile = this.profileRepository.create(profileDto);
+      profile = await this.profileRepository.save(profile);
+      user.profile = profile;
       user = await this.userRepository.save(user);
-      return profileDb;
+      return profile;
+    } catch (error) {
+      this.logger.error(error);
+      throw new InternalServerErrorException();
+    }
+  }
+
+  async createProfile(user: User, profileDto: ProfileDto): Promise<Profile> {
+    try {
+      let profile = this.profileRepository.create(profileDto);
+      profile = await this.profileRepository.save(profile);
+      user.profile = profile;
+      user = await this.userRepository.save(user);
+      return profile;
+    } catch (error) {
+      this.logger.error(error);
+      throw new InternalServerErrorException();
+    }
+  }
+
+  async updateProfile(token: JwtPayloadDto, profileDto: ProfileDto) {
+    const user = await this.findUserById(token.id);
+
+    if (!user) {
+      this.logger.error(
+        'User validated, but not found',
+        'updateProfile',
+        `UID: ${token.id.toString()}`,
+      );
+      throw new InternalServerErrorException();
+    }
+
+    if (!user.profile) {
+      return this.createProfile(user, profileDto);
+    }
+
+    try {
+      return this.profileRepository.update(
+        {
+          id: user.profile.id,
+        },
+        profileDto,
+      );
+    } catch (error) {
+      this.logger.error(error);
+      throw new InternalServerErrorException();
+    }
+  }
+
+  async deleteUser(token: JwtPayloadDto) {
+    const user = await this.findUserById(token.id);
+
+    if (!user) {
+      this.logger.error(
+        'User validated, but not found',
+        'deleteUser',
+        `UID: ${token.id.toString()}`,
+      );
+      throw new InternalServerErrorException();
+    }
+
+    try {
+      if (user.profile) {
+        await this.profileRepository.delete(user.profile);
+      }
+      return await this.userRepository.delete(user);
     } catch (error) {
       this.logger.error(error);
       throw new InternalServerErrorException();
