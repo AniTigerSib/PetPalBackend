@@ -26,14 +26,18 @@ export class User {
   @Column({ nullable: true, length: 255 }) // NULL for OAuth only users
   passwordHash: string;
 
-  // @Column({ nullable: true, length: 100 })
-  // fullName: string;
-
   @Column({ nullable: true, length: 50 })
   firstName: string;
 
   @Column({ nullable: true, length: 50 })
   lastName: string;
+
+  // TODO: add roles, permissions
+  // TODO: add status (blocked, reason)
+
+  // For future use:
+  // @Column({ default: 0 })
+  // tokenVersion: number;
 
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;

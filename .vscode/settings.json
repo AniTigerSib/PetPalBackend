@@ -1,5 +1,7 @@
 {
     "editor.tabSize": 2,
     "files.autoSave": "onFocusChange",
-    "CodeGPT.apiKey": "CodeGPT Plus Beta"
+    "CodeGPT.apiKey": "CodeGPT Plus Beta",
+    "javascript.preferences.quoteStyle": "single",
+    "typescript.preferences.quoteStyle": "single"
 }

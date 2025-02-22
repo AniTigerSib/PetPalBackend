@@ -13,4 +13,6 @@ export class JwtPayloadDto {
   @IsNotEmpty()
   @IsString()
   username: string;
+
+  // TODO: add rules, permissions
 }

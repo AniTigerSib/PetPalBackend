@@ -18,5 +18,6 @@ import { BcryptService } from 'src/common/hashing/bcrypt.service';
     UsersService,
   ],
   controllers: [UsersController],
+  exports: [UsersService],
 })
 export class UsersModule {}

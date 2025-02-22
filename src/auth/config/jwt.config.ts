@@ -30,10 +30,12 @@ export default registerAs('jwt', () => {
     secret: configService.get<string>('JWT_SECRET'),
     audience: configService.get<string>('JWT_TOKEN_AUDIENCE'),
     issuer: configService.get<string>('JWT_TOKEN_ISSUER'),
-    accessTokenTtl: parseDuration(
+    accessTokenTtl: configService.get<string>('JWT_ACCESS_TOKEN_TTL'),
+    refreshTokenTtl: configService.get<string>('JWT_REFRESH_TOKEN_TTL'),
+    accessTokenTtlNumeric: parseDuration(
       configService.get<string>('JWT_ACCESS_TOKEN_TTL'),
     ),
-    refreshTokenTtl: parseDuration(
+    refreshTokenTtlNumeric: parseDuration(
       configService.get<string>('JWT_REFRESH_TOKEN_TTL'),
     ),
   };
