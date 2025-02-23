@@ -35,9 +35,9 @@ export class User {
   // TODO: add roles, permissions
   // TODO: add status (blocked, reason)
 
-  // For future use:
-  // @Column({ default: 0 })
-  // tokenVersion: number;
+  // For test
+  @Column({ default: 0 })
+  tokenVersion: number;
 
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;

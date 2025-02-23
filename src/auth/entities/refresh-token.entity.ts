@@ -24,6 +24,23 @@ export class RefreshToken {
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 
+  // For future use
+  // @Column({ nullable: true })
+  // userAgent: string;
+
+  // @Column({ nullable: true })
+  // ipAddress: string;
+
+  // @Column({ nullable: true })
+  // revokedReason: string;
+
+  // @Column({ type: 'timestamptz', nullable: true })
+  // revokedAt: Date;
+
+  // // Optional: Add a family identifier for token rotation
+  // @Column({ nullable: true })
+  // tokenFamily: string;
+
   @ManyToOne(() => User, (user) => user.refreshTokens)
   user: User;
 }

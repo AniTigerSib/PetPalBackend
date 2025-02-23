@@ -1,18 +1,12 @@
-import { IsEmail, IsNotEmpty, IsNumber, IsString } from 'class-validator';
+import { JwtUserPayloadDto } from './jwt-user-payload.dto';
+import DeviceInfoDto from './device-info.dto';
 
 export class JwtPayloadDto {
-  @IsNotEmpty()
-  @IsNumber()
-  id: number;
-
-  @IsNotEmpty()
-  @IsString()
-  @IsEmail()
-  email: string;
-
-  @IsNotEmpty()
-  @IsString()
-  username: string;
-
-  // TODO: add rules, permissions
+  jti: string;
+  sub: number;
+  iat: number;
+  exp: number;
+  user: JwtUserPayloadDto;
+  tokenVersion: number;
+  deviceInfo?: DeviceInfoDto;
 }

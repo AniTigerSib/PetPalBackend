@@ -1,4 +1,9 @@
-import { Inject, Logger } from '@nestjs/common';
+import {
+  Inject,
+  InternalServerErrorException,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { User } from 'src/users/entities/user.entity';
 import { UsersService } from 'src/users/users.service';
@@ -10,6 +15,13 @@ import DeviceInfoDto from './dto/device-info.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RefreshToken } from './entities/refresh-token.entity';
+import { CreateUserDto } from 'src/users/dto/create-user.dto';
+import { HashingService } from 'src/common/hashing/hashing.service';
+import RegisterDto from './dto/register.dto';
+import LoginDto from './dto/login.dto';
+import { isEmail } from 'class-validator';
+import UserPartial from './interfaces/user-partial.interface';
+import { JwtUserPayloadDto } from './dto/jwt-user-payload.dto';
 
 // @Injectable()
 export class AuthService {
@@ -17,6 +29,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     // @InjectRepository(User)
     // private readonly userRepository: Repository<User>,
+    private readonly hashingService: HashingService,
     @InjectRepository(RefreshToken)
     private readonly tokenRepository: Repository<RefreshToken>,
     private readonly jwtService: JwtService,
@@ -33,19 +46,93 @@ export class AuthService {
   //   return user;
   // }
 
-  // async signIn(username: string, pass: string) {
-  //   const user = await this.usersService.findByUsername(username);
-  //   if (user?.password !== pass) {
-  //     throw new UnauthorizedException();
-  //   }
-  //   const payload = { username: user.username, sub: user.id };
-  //   return {
-  //     access_token: await this.jwtService.signAsync(payload),
-  //   };
-  // }
+  async validateUser(
+    loginDto: LoginDto,
+  ): Promise<UserPartial | null | undefined> {
+    try {
+      let user: User | null = null;
+      if (isEmail(loginDto.login)) {
+        user = await this.usersService.findUserByEmail(loginDto.login);
+      } else {
+        user = await this.usersService.findUserByUsername(loginDto.login);
+      }
+
+      if (user && user.passwordHash) {
+        const isPasswordValid = await this.hashingService.compare(
+          loginDto.password,
+          user.passwordHash,
+        );
+        if (isPasswordValid) {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { passwordHash, ...result } = user;
+          return result;
+        }
+        return null;
+      }
+    } catch (error) {
+      this.logger.error(error);
+      throw new InternalServerErrorException();
+    }
+  }
+
+  // TODO: For future use
+  // Check if account is locked, email verified, etc. In not - throws exception.
+  // async validateUserStatus(token: TokenInfoDto): Promise<void> {}
+
+  async login(loginDto: LoginDto, deviceInfo?: DeviceInfoDto) {
+    const user = await this.validateUser(loginDto);
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const { accessToken, refreshToken } = await this.generateTokens(
+      user,
+      deviceInfo,
+    );
+
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+      },
+    };
+  }
+
+  async register(registerDto: RegisterDto) {
+    const createUserDto: CreateUserDto = {
+      ...registerDto,
+      passwordHash: await this.hashingService.hash(registerDto.password),
+    };
+    await this.usersService.createUserSecure(createUserDto);
+    // TODO: additional functions for user registration, like email notification, etc...
+  }
+
+  async refreshToken(
+    refreshToken: string,
+    deviceInfo?: DeviceInfoDto,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    const token = await this.tokenRepository.findOne({
+      where: { token: refreshToken, revoked: false },
+      relations: ['user'],
+    });
+
+    if (!token || new Date() > token.expiresAt) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    // TODO: also add verifying tokent context
+
+    await this.tokenRepository.update({ id: token.id }, { revoked: true });
+
+    return this.generateTokens(token.user, deviceInfo);
+  }
 
   async generateTokens(
-    user: User,
+    user: UserPartial,
     deviceInfo?: DeviceInfoDto,
   ): Promise<{ accessToken: string; refreshToken: string }> {
     const accessToken = await this.generateAccessToken(user, deviceInfo);
@@ -57,16 +144,33 @@ export class AuthService {
         this.parseDuration(this.jwtConfiguration.refreshTokenTtl),
     );
 
-    await this.tokenRepository.save({
-      token: refreshToken,
-      user,
-      expiresAt,
-    });
+    try {
+      await this.tokenRepository.save({
+        token: refreshToken,
+        user,
+        expiresAt,
+      });
+    } catch (error) {
+      this.logger.error(error);
+      throw new InternalServerErrorException();
+    }
 
     return { accessToken, refreshToken };
   }
 
   // PRIVATE /////////////////////////////////////////
+
+  // For test
+  // Method to invalidate all existing tokens for a user
+  private async invalidateUserTokens(userId: number): Promise<void> {
+    try {
+      await this.usersService.shiftTokenVersion(userId);
+      await this.tokenRepository.update(userId, { revoked: true });
+    } catch (error) {
+      this.logger.error(error);
+      throw new InternalServerErrorException();
+    }
+  }
 
   private generateTokenId(): string {
     // Generate unique token identifier
@@ -74,7 +178,7 @@ export class AuthService {
   }
 
   private async generateAccessToken(
-    user: User,
+    user: UserPartial,
     deviceInfo?: DeviceInfoDto,
   ): Promise<string> {
     // Generate unique token identifier
@@ -83,14 +187,14 @@ export class AuthService {
     // Get current timestamp
     const issuedAt = Math.floor(Date.now() / 1000);
 
-    const payloadDto: JwtPayloadDto = user;
+    const payloadDto: JwtUserPayloadDto = user;
 
     // Calculate expiration time
     const expiresIn = this.jwtConfiguration.accessTokenTtl;
     const expirationTime =
       issuedAt + this.jwtConfiguration.accessTokenTtlNumeric;
 
-    const payload = {
+    const payload: JwtPayloadDto = {
       jti,
       sub: user.id,
       iat: issuedAt,
@@ -98,11 +202,9 @@ export class AuthService {
 
       user: { ...payloadDto },
 
-      // For future use
-      // tokenVersion: user.tokenVersion,
-      deviceInfo: {
-        ...deviceInfo,
-      },
+      // For test
+      tokenVersion: user.tokenVersion,
+      deviceInfo,
     };
 
     return this.jwtService.signAsync(payload, {
@@ -135,26 +237,6 @@ export class AuthService {
 
     return hash;
   }
-
-  // For future use
-  // // Method to invalidate all existing tokens for a user
-  // async invalidateUserTokens(userId: number): Promise<void> {
-  //   try {
-  //     await this.userRepository.update(
-  //       { id: userId },
-  //       { tokenVersion: () => 'token_version + 1' }
-  //     );
-
-  //     await this.tokenRepository.update(userId, { revoked: true });
-  //   } catch (error) {
-  //     this.logger.error(error);
-  //     throw new InternalServerErrorException();
-  //   }
-  // }
-
-  // For super future use
-  // Check if account is locked, email verified, etc. In not - throws exception.
-  // async validateUserStatus(token: TokenInfoDto): Promise<void> {}
 
   private parseDuration(duration: string | undefined): number {
     if (!duration) return 0;

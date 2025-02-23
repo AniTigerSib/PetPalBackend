@@ -15,6 +15,7 @@ import { ProfileDto } from './dto/profile.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { HashingService } from 'src/common/hashing/hashing.service';
 import { TokenInfoDto } from './dto/token-info.dto';
+// import { Profile as GProfile } from 'passport-google-oauth20';
 
 @Injectable()
 export class UsersService {
@@ -68,7 +69,7 @@ export class UsersService {
     }
   }
 
-  async createUser(createUserDto: CreateUserDto): Promise<User> {
+  private async createUser(createUserDto: CreateUserDto): Promise<User> {
     try {
       const user = this.userRepository.create(createUserDto);
       return await this.userRepository.save(user);
@@ -79,37 +80,67 @@ export class UsersService {
   }
 
   async createUserSecure(createUserDto: CreateUserDto): Promise<User> {
-    const existingUser = await this.userRepository.findOne({
+    const userExists = await this.userRepository.exists({
       where: [
         { username: createUserDto.username },
         { email: createUserDto.email },
       ],
     });
 
-    if (existingUser) {
+    if (userExists) {
       throw new ConflictException(
         'User with such username or email already exists',
       );
     }
 
-    createUserDto.passwordHash = await this.hashingService.hash(
-      createUserDto.passwordHash,
-    );
-
     return await this.createUser(createUserDto);
+  }
+
+  async shiftTokenVersion(userId: number): Promise<UpdateResult> {
+    return await this.userRepository.update(
+      { id: userId },
+      { tokenVersion: () => 'token_version + 1' },
+    );
+  }
+
+  // async findOrCreateOauthUser(
+  //   profile: GProfile,
+  //   provider: string,
+  // ): Promise<User> {
+  //   const providerUserId = profile.id;
+
+  //   const existingOAuthAccount = await this.oauthAccountRepository.findOne({
+  //     where: { provider, providerUserId },
+  //     relations: ['user'],
+  //   });
+
+  //   if (existingOAuthAccount) return existingOAuthAccount.user;
+  // }
+
+  private validateUpdateUserDto(dto: UpdateUserDto): boolean {
+    return Object.keys(dto).length > 0;
   }
 
   async updateUser(
     token: TokenInfoDto,
     updateUserDto: UpdateUserDto,
   ): Promise<UpdateResult> {
-    try {
-      return await this.userRepository.update(
-        {
-          id: token.id,
+    if (!this.validateUpdateUserDto(updateUserDto)) {
+      throw new BadRequestException('Update data cannot be empty');
+    }
+
+    if (updateUserDto.username) {
+      const userExists = await this.userRepository.exists({
+        where: {
+          username: updateUserDto.username,
         },
-        updateUserDto,
-      );
+      });
+      if (userExists) {
+        throw new ConflictException('User with such username already exists');
+      }
+    }
+    try {
+      return await this.userRepository.update({ id: token.id }, updateUserDto);
     } catch (error) {
       this.logger.error(error);
       throw new InternalServerErrorException();
@@ -133,7 +164,10 @@ export class UsersService {
   }
 
   async deleteUser(token: TokenInfoDto) {
-    const user = await this.findUserById(token.id);
+    const user = await this.userRepository.findOne({
+      where: { id: token.id },
+      relations: ['profile'],
+    });
 
     if (!user) {
       this.logger.error(
@@ -146,20 +180,31 @@ export class UsersService {
 
     try {
       if (user.profile) {
-        await this.profileRepository.delete(user.profile);
+        await this.profileRepository.delete({ id: user.profile.id });
       }
-      return await this.userRepository.delete(user);
+      return await this.userRepository.delete({ id: user.id });
     } catch (error) {
       this.logger.error(error);
       throw new InternalServerErrorException();
     }
   }
 
+  private validateProfileDto(dto: ProfileDto): boolean {
+    return Object.keys(dto).length > 0;
+  }
+
   async createProfileSecure(
     token: TokenInfoDto,
     profileDto: ProfileDto,
   ): Promise<Profile> {
-    let user = await this.findUserById(token.id);
+    if (!this.validateProfileDto(profileDto)) {
+      throw new BadRequestException('Data cannot be empty');
+    }
+
+    let user = await this.userRepository.findOne({
+      where: { id: token.id },
+      relations: ['profile'],
+    });
 
     if (!user) {
       this.logger.error(
@@ -186,7 +231,10 @@ export class UsersService {
     }
   }
 
-  async createProfile(user: User, profileDto: ProfileDto): Promise<Profile> {
+  private async createProfile(
+    user: User,
+    profileDto: ProfileDto,
+  ): Promise<Profile> {
     try {
       let profile = this.profileRepository.create(profileDto);
       profile = await this.profileRepository.save(profile);
@@ -203,7 +251,11 @@ export class UsersService {
     token: TokenInfoDto,
     profileDto: ProfileDto,
   ): Promise<UpdateResult | Profile> {
-    const user = await this.findUserById(token.id);
+    // TODO: check if DTO is empty
+    const user = await this.userRepository.findOne({
+      where: { id: token.id },
+      relations: ['profile'],
+    });
 
     if (!user) {
       this.logger.error(
@@ -231,3 +283,5 @@ export class UsersService {
     }
   }
 }
+
+// TODO: refactor Update methods to GraphQL

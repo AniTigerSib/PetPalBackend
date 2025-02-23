@@ -1,3 +1,25 @@
-import { UserExtendedDto } from './user-extended.dto';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 
-export class UpdateUserDto extends UserExtendedDto {}
+export class UpdateUserDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  username?: string;
+
+  // TODO: implement separate complete method
+  // @IsOptional()
+  // @IsString()
+  // @IsEmail()
+  // @MaxLength(100)
+  // email: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  firstName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  lastName?: string;
+}

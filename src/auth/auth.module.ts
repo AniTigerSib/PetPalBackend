@@ -6,6 +6,8 @@ import { RefreshToken } from './entities/refresh-token.entity';
 import { ConfigModule } from '@nestjs/config';
 import jwtConfig from './config/jwt.config';
 import { JwtModule } from '@nestjs/jwt';
+import { HashingService } from 'src/common/hashing/hashing.service';
+import { BcryptService } from 'src/common/hashing/bcrypt.service';
 
 @Module({
   imports: [
@@ -14,6 +16,12 @@ import { JwtModule } from '@nestjs/jwt';
     JwtModule.registerAsync(jwtConfig.asProvider()),
   ],
   controllers: [AuthController],
-  providers: [AuthService],
+  providers: [
+    {
+      provide: HashingService,
+      useClass: BcryptService,
+    },
+    AuthService,
+  ],
 })
 export class AuthModule {}
