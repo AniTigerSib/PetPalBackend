@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
-import { Repository, UpdateResult } from 'typeorm';
+import { FindOptionsSelect, Repository, UpdateResult } from 'typeorm';
 import { CreateUserDto } from './dto/create-user.dto';
 import { Profile } from './entities/users-profile.entity';
 // import { OauthAccount } from './entities/oauth-account.entity';
@@ -30,12 +30,16 @@ export class UsersService {
   ) {}
   private readonly logger = new Logger('UsersService');
 
-  async findUserById(id: number): Promise<User | null> {
+  async findUserById(
+    id: number,
+    select?: string[],
+  ): Promise<User | Partial<User> | null> {
     try {
       return await this.userRepository.findOne({
         where: {
           id: id,
         },
+        select: select ? (select as FindOptionsSelect<User>) : undefined,
       });
     } catch (error) {
       this.logger.error(error);
@@ -99,7 +103,7 @@ export class UsersService {
   async shiftTokenVersion(userId: number): Promise<UpdateResult> {
     return await this.userRepository.update(
       { id: userId },
-      { tokenVersion: () => 'token_version + 1' },
+      { tokenVersion: () => 'tokenVersion + 1' },
     );
   }
 
@@ -117,18 +121,10 @@ export class UsersService {
   //   if (existingOAuthAccount) return existingOAuthAccount.user;
   // }
 
-  private validateUpdateUserDto(dto: UpdateUserDto): boolean {
-    return Object.keys(dto).length > 0;
-  }
-
   async updateUser(
     token: TokenInfoDto,
     updateUserDto: UpdateUserDto,
   ): Promise<UpdateResult> {
-    if (!this.validateUpdateUserDto(updateUserDto)) {
-      throw new BadRequestException('Update data cannot be empty');
-    }
-
     if (updateUserDto.username) {
       const userExists = await this.userRepository.exists({
         where: {
@@ -189,18 +185,10 @@ export class UsersService {
     }
   }
 
-  private validateProfileDto(dto: ProfileDto): boolean {
-    return Object.keys(dto).length > 0;
-  }
-
   async createProfileSecure(
     token: TokenInfoDto,
     profileDto: ProfileDto,
   ): Promise<Profile> {
-    if (!this.validateProfileDto(profileDto)) {
-      throw new BadRequestException('Data cannot be empty');
-    }
-
     let user = await this.userRepository.findOne({
       where: { id: token.id },
       relations: ['profile'],

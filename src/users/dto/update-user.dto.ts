@@ -4,7 +4,7 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   @MaxLength(50)
-  username?: string;
+  username: string;
 
   // TODO: implement separate complete method
   // @IsOptional()
@@ -16,10 +16,10 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   @MaxLength(50)
-  firstName?: string;
+  firstName: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(50)
-  lastName?: string;
+  lastName: string;
 }

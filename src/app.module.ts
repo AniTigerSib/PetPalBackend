@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { BcryptService } from './common/hashing/bcrypt.service';
+import { TokenModule } from './token/token.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { BcryptService } from './common/hashing/bcrypt.service';
     }),
     UsersModule,
     AuthModule,
+    TokenModule,
   ],
   controllers: [],
   providers: [BcryptService],

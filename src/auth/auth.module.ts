@@ -8,9 +8,14 @@ import jwtConfig from './config/jwt.config';
 import { JwtModule } from '@nestjs/jwt';
 import { HashingService } from 'src/common/hashing/hashing.service';
 import { BcryptService } from 'src/common/hashing/bcrypt.service';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { UsersModule } from 'src/users/users.module';
+import { TokenModule } from 'src/token/token.module';
 
 @Module({
   imports: [
+    UsersModule,
+    TokenModule,
     TypeOrmModule.forFeature([RefreshToken]),
     ConfigModule.forFeature(jwtConfig),
     JwtModule.registerAsync(jwtConfig.asProvider()),
@@ -22,6 +27,8 @@ import { BcryptService } from 'src/common/hashing/bcrypt.service';
       useClass: BcryptService,
     },
     AuthService,
+    JwtAuthGuard,
   ],
+  exports: [JwtAuthGuard],
 })
 export class AuthModule {}
