@@ -108,16 +108,22 @@ export class AuthService {
   ): Promise<{ accessToken: string; refreshToken: string }> {
     const token = await this.tokenRepository.findOne({
       where: { token: refreshToken, revoked: false },
-      relations: ['user'],
+      relations: {
+        user: true,
+      },
     });
 
-    if (!token || new Date() > token.expiresAt) {
+    if (!token) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    await this.tokenRepository.update({ id: token.id }, { revoked: true });
+
+    if (new Date() > token.expiresAt) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
     // TODO: also add verifying tokent context (userAgent, ipAddress etc.)
-
-    await this.tokenRepository.update({ id: token.id }, { revoked: true });
 
     return this.tokenService.generateTokens(token.user, deviceInfo);
   }

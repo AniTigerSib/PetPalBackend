@@ -4,7 +4,8 @@ import LoginDto from './dto/login.dto';
 import RegisterDto from './dto/register.dto';
 import { Request } from 'express';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { UserPayloadDto } from './dto/user-payload.dto';
+import UserPayload from './interfaces/user-payload.interface';
+import { RefreshDto } from './dto/refresh.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -20,9 +21,14 @@ export class AuthController {
     return this.authService.register(registerDto);
   }
 
+  @Post('refresh')
+  async refresh(@Body() refreshDto: RefreshDto) {
+    return this.authService.refreshToken(refreshDto.refreshToken);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Post('logout')
-  async logout(@Req() request: Request & { user: UserPayloadDto }) {
+  async logout(@Req() request: Request & { user: UserPayload }) {
     return this.authService.invalidateUserTokens(request.user.id);
   }
 }

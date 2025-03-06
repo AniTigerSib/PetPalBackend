@@ -11,10 +11,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as crypto from 'crypto';
 import jwtConfig from 'src/auth/config/jwt.config';
 import DeviceInfoDto from 'src/auth/dto/device-info.dto';
-import { JwtPayloadDto } from 'src/auth/dto/jwt-payload.dto';
-import { UserPayloadDto } from 'src/auth/dto/user-payload.dto';
 import { RefreshToken } from 'src/auth/entities/refresh-token.entity';
+import JwtPayload from 'src/auth/interfaces/jwt-payload.interface';
 import UserPartial from 'src/auth/interfaces/user-partial.interface';
+import UserPayload from 'src/auth/interfaces/user-payload.interface';
 import { UsersService } from 'src/users/users.service';
 import { Repository } from 'typeorm';
 
@@ -36,11 +36,11 @@ export class TokenService {
       deviceInfo?: DeviceInfoDto;
       fullVerification?: boolean;
     } = {},
-  ): Promise<JwtPayloadDto> {
+  ): Promise<JwtPayload> {
     const { deviceInfo, fullVerification = true } = options;
 
     try {
-      const decoded = this.jwtService.verify<JwtPayloadDto>(token, {
+      const decoded = this.jwtService.verify<JwtPayload>(token, {
         secret: this.jwtConfiguration.secret,
         audience: this.jwtConfiguration.audience,
         issuer: this.jwtConfiguration.issuer,
@@ -124,12 +124,12 @@ export class TokenService {
     // Get current timestamp
     const issuedAt = Math.floor(Date.now() / 1000);
 
-    const payloadDto: UserPayloadDto = user;
+    const payloadDto: UserPayload = user;
 
     // Calculate expiration time
     const expiresIn = this.jwtConfiguration.accessTokenTtl;
 
-    const payload: JwtPayloadDto = {
+    const payload: JwtPayload = {
       jti,
       sub: user.id,
       iat: issuedAt,
