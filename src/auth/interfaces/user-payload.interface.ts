@@ -2,6 +2,6 @@ export default interface UserPayload {
   id: number;
   email: string;
   username: string;
-
-  // TODO: add rules, permissions
+  roles: string[];
+  // TODO: add permissions
 }

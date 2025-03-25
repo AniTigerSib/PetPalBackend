@@ -1,13 +1,19 @@
 import {
   BadRequestException,
   ConflictException,
+  HttpException,
   Injectable,
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
-import { FindOptionsSelect, Repository, UpdateResult } from 'typeorm';
+import {
+  FindOptionsRelations,
+  FindOptionsSelect,
+  Repository,
+  UpdateResult,
+} from 'typeorm';
 import { CreateUserDto } from './dto/create-user.dto';
 import { Profile } from './entities/users-profile.entity';
 // import { OauthAccount } from './entities/oauth-account.entity';
@@ -15,6 +21,8 @@ import { ProfileDto } from './dto/profile.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { HashingService } from 'src/common/hashing/hashing.service';
 import { TokenInfoDto } from './dto/token-info.dto';
+import { ROLES } from './constants/roles.constant';
+import { Role } from './entities/role.entity';
 // import { Profile as GProfile } from 'passport-google-oauth20';
 
 @Injectable()
@@ -24,6 +32,8 @@ export class UsersService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Profile)
     private readonly profileRepository: Repository<Profile>,
+    @InjectRepository(Role)
+    private readonly roleRepository: Repository<Role>,
     // @InjectRepository(OauthAccount)
     // private readonly oauthAccountRepository: Repository<OauthAccount>,
     private readonly hashingService: HashingService,
@@ -32,14 +42,16 @@ export class UsersService {
 
   async findUserById(
     id: number,
-    select?: string[],
+    select?: FindOptionsSelect<User>,
+    relations?: FindOptionsRelations<User>,
   ): Promise<User | Partial<User> | null> {
     try {
       return await this.userRepository.findOne({
         where: {
           id: id,
         },
-        select: select ? (select as FindOptionsSelect<User>) : undefined,
+        select,
+        relations,
       });
     } catch (error) {
       this.logger.error(error);
@@ -47,12 +59,18 @@ export class UsersService {
     }
   }
 
-  async findUserByUsername(username: string): Promise<User | null> {
+  async findUserByUsername(
+    username: string,
+    select?: FindOptionsSelect<User>,
+    relations?: FindOptionsRelations<User>,
+  ): Promise<User | null> {
     try {
       return await this.userRepository.findOne({
         where: {
           username,
         },
+        select,
+        relations,
       });
     } catch (error) {
       this.logger.error(error);
@@ -60,12 +78,18 @@ export class UsersService {
     }
   }
 
-  async findUserByEmail(email: string): Promise<User | null> {
+  async findUserByEmail(
+    email: string,
+    select?: FindOptionsSelect<User>,
+    relations?: FindOptionsRelations<User>,
+  ): Promise<User | null> {
     try {
       return await this.userRepository.findOne({
         where: {
           email,
         },
+        select,
+        relations,
       });
     } catch (error) {
       this.logger.error(error);
@@ -75,10 +99,20 @@ export class UsersService {
 
   private async createUser(createUserDto: CreateUserDto): Promise<User> {
     try {
+      const userRole = await this.roleRepository.findOne({
+        where: { name: ROLES.USER },
+      });
+      if (!userRole) {
+        throw new InternalServerErrorException('User role not found');
+      }
       const user = this.userRepository.create(createUserDto);
+      user.roles = [userRole];
       return await this.userRepository.save(user);
     } catch (error) {
       this.logger.error(error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new InternalServerErrorException();
     }
   }

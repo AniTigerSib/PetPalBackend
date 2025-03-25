@@ -7,10 +7,13 @@ import {
   CreateDateColumn,
   OneToMany,
   UpdateDateColumn,
+  ManyToMany,
+  JoinTable,
 } from 'typeorm';
 import { Profile } from './users-profile.entity';
-import { RefreshToken } from 'src/auth/entities/refresh-token.entity';
+import { RefreshToken } from '../../auth/entities/refresh-token.entity';
 import { OauthAccount } from './oauth-account.entity';
+import { Role } from './role.entity';
 
 @Entity()
 export class User {
@@ -32,7 +35,10 @@ export class User {
   @Column({ nullable: true, length: 50 })
   lastName: string;
 
-  // TODO: add roles, permissions
+  @ManyToMany(() => Role, (role) => role.users)
+  @JoinTable()
+  roles: Role[];
+
   // TODO: add status (blocked, reason)
 
   // For test

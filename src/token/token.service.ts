@@ -1,4 +1,5 @@
 import {
+  HttpException,
   Inject,
   Injectable,
   InternalServerErrorException,
@@ -53,10 +54,10 @@ export class TokenService {
 
       // TODO: Setup caching
 
-      const user = await this.usersService.findUserById(decoded.sub, [
-        'id',
-        'tokenVersion',
-      ]);
+      const user = await this.usersService.findUserById(decoded.sub, {
+        id: true,
+        tokenVersion: true,
+      });
 
       if (!user) {
         throw new UnauthorizedException('User not found');
@@ -76,6 +77,8 @@ export class TokenService {
     } catch (error) {
       if (error instanceof JsonWebTokenError) {
         throw new UnauthorizedException('Invalid token or token has expired');
+      } else if (error instanceof HttpException) {
+        throw error;
       }
       this.logger.error(error);
       throw new InternalServerErrorException();
@@ -124,7 +127,10 @@ export class TokenService {
     // Get current timestamp
     const issuedAt = Math.floor(Date.now() / 1000);
 
-    const payloadDto: UserPayload = user;
+    const payloadDto: UserPayload = {
+      ...user,
+      roles: user.roles?.map((role) => role.name),
+    };
 
     // Calculate expiration time
     const expiresIn = this.jwtConfiguration.accessTokenTtl;

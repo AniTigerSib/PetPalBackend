@@ -5,6 +5,10 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { BcryptService } from './common/hashing/bcrypt.service';
 import { TokenModule } from './token/token.module';
+import { DataSource } from 'typeorm';
+import { runSeeders } from 'typeorm-extension';
+import { PostsModule } from './posts/posts.module';
+import AppDataSource from './datasource';
 
 @Module({
   imports: [
@@ -31,6 +35,7 @@ import { TokenModule } from './token/token.module';
     UsersModule,
     AuthModule,
     TokenModule,
+    PostsModule,
   ],
   controllers: [],
   providers: [BcryptService],

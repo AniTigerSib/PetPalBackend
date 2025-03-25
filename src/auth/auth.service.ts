@@ -43,9 +43,21 @@ export class AuthService {
       let user: User | null = null;
       if (isEmail(loginDto.login)) {
         loginDto.login = loginDto.login.toLowerCase();
-        user = await this.usersService.findUserByEmail(loginDto.login);
+        user = await this.usersService.findUserByEmail(
+          loginDto.login,
+          undefined,
+          {
+            roles: true,
+          },
+        );
       } else {
-        user = await this.usersService.findUserByUsername(loginDto.login);
+        user = await this.usersService.findUserByUsername(
+          loginDto.login,
+          undefined,
+          {
+            roles: true,
+          },
+        );
       }
 
       if (user && user.passwordHash) {
@@ -106,26 +118,38 @@ export class AuthService {
     refreshToken: string,
     deviceInfo?: DeviceInfoDto,
   ): Promise<{ accessToken: string; refreshToken: string }> {
-    const token = await this.tokenRepository.findOne({
-      where: { token: refreshToken, revoked: false },
-      relations: {
-        user: true,
-      },
-    });
+    try {
+      const token = await this.tokenRepository.findOne({
+        where: { token: refreshToken, revoked: false },
+        relations: {
+          user: {
+            roles: true,
+          },
+        },
+      });
 
-    if (!token) {
-      throw new UnauthorizedException('Invalid refresh token');
+      if (!token) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      await this.tokenRepository.update({ id: token.id }, { revoked: true });
+
+      if (new Date() > token.expiresAt) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      // TODO: also add verifying tokent context (userAgent, ipAddress etc.)
+
+      return this.tokenService.generateTokens(token.user, deviceInfo);
+    } catch (error) {
+      this.logger.error(error);
+
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException();
     }
-
-    await this.tokenRepository.update({ id: token.id }, { revoked: true });
-
-    if (new Date() > token.expiresAt) {
-      throw new UnauthorizedException('Invalid refresh token');
-    }
-
-    // TODO: also add verifying tokent context (userAgent, ipAddress etc.)
-
-    return this.tokenService.generateTokens(token.user, deviceInfo);
   }
 
   async invalidateUserTokens(userId: number): Promise<void> {

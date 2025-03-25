@@ -6,7 +6,7 @@ config(); // Load .env file
 
 const configService = new ConfigService();
 
-export default new DataSource({
+const AppDataSource = new DataSource({
   type: 'postgres',
   host: configService.get<string>('DB_HOST'),
   port: configService.get<number>('DB_PORT'),
@@ -17,3 +17,5 @@ export default new DataSource({
   migrations: ['./src/migrations/*{.ts,.js}'],
   synchronize: true, // Disable in production
 });
+
+export default AppDataSource;

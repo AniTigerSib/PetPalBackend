@@ -7,9 +7,13 @@ import { OauthAccount } from './entities/oauth-account.entity';
 import { Profile } from './entities/users-profile.entity';
 import { HashingService } from 'src/common/hashing/hashing.service';
 import { BcryptService } from 'src/common/hashing/bcrypt.service';
+import { Role } from './entities/role.entity';
+import { Permission } from './entities/permission.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, OauthAccount, Profile])],
+  imports: [
+    TypeOrmModule.forFeature([User, OauthAccount, Profile, Role, Permission]),
+  ],
   providers: [
     {
       provide: HashingService,
