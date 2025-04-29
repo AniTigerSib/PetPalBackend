@@ -9,10 +9,22 @@ import { HashingService } from 'src/common/hashing/hashing.service';
 import { BcryptService } from 'src/common/hashing/bcrypt.service';
 import { Role } from './entities/role.entity';
 import { Permission } from './entities/permission.entity';
+import { FriendsController } from './friends.controller';
+import { FriendsService } from './friends.service';
+import { FriendRequest } from './entities/friend-request.entity';
+import { Blocklist } from './entities/blocklist.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, OauthAccount, Profile, Role, Permission]),
+    TypeOrmModule.forFeature([
+      User,
+      OauthAccount,
+      Profile,
+      Role,
+      Permission,
+      FriendRequest,
+      Blocklist,
+    ]),
   ],
   providers: [
     {
@@ -20,8 +32,9 @@ import { Permission } from './entities/permission.entity';
       useClass: BcryptService,
     },
     UsersService,
+    FriendsService,
   ],
-  controllers: [UsersController],
+  controllers: [UsersController, FriendsController],
   exports: [UsersService],
 })
 export class UsersModule {}

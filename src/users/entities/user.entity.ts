@@ -14,6 +14,8 @@ import { Profile } from './users-profile.entity';
 import { RefreshToken } from '../../auth/entities/refresh-token.entity';
 import { OauthAccount } from './oauth-account.entity';
 import { Role } from './role.entity';
+import { FriendRequest } from './friend-request.entity';
+import { Blocklist } from './blocklist.entity';
 
 @Entity()
 export class User {
@@ -39,7 +41,14 @@ export class User {
   @JoinTable()
   roles: Role[];
 
-  // TODO: add status (blocked, reason)
+  @OneToMany(() => FriendRequest, (friendRequest) => friendRequest.sender)
+  sentFriendRequests: FriendRequest[];
+
+  @OneToMany(() => FriendRequest, (friendRequest) => friendRequest.receiver)
+  receivedFriendRequests: FriendRequest[];
+
+  @OneToMany(() => Blocklist, (blocklist) => blocklist.blocker)
+  blockedUsers: Blocklist[];
 
   // For test
   @Column({ default: 0 })
