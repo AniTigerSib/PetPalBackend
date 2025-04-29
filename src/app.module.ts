@@ -5,10 +5,6 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { BcryptService } from './common/hashing/bcrypt.service';
 import { TokenModule } from './token/token.module';
-import { DataSource } from 'typeorm';
-import { runSeeders } from 'typeorm-extension';
-import { PostsModule } from './posts/posts.module';
-import AppDataSource from './datasource';
 
 @Module({
   imports: [
@@ -26,7 +22,7 @@ import AppDataSource from './datasource';
           database: configService.get<string>('DB_NAME'),
           entities: [],
           migrations: [__dirname + '/migrations/**/*{.ts,.js}'],
-          synchronize: true, // Disable in production
+          // synchronize: true, // Disable in production
           logging: true,
           autoLoadEntities: true,
         };
@@ -35,7 +31,6 @@ import AppDataSource from './datasource';
     UsersModule,
     AuthModule,
     TokenModule,
-    PostsModule,
   ],
   controllers: [],
   providers: [BcryptService],

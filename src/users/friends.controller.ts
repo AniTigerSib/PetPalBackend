@@ -25,6 +25,7 @@ import { Auth } from '../auth/decorators/auth.decorator';
 export class FriendsController {
   constructor(private readonly friendsService: FriendsService) {}
 
+  @Auth('user')
   @Post('requests')
   async sendFriendRequest(
     @Req() request: AuthorizedRequest,
@@ -36,6 +37,7 @@ export class FriendsController {
     );
   }
 
+  @Auth('user')
   @Put('requests')
   async respondToFriendRequest(
     @Req() request: AuthorizedRequest,
@@ -47,6 +49,7 @@ export class FriendsController {
     );
   }
 
+  @Auth('user')
   @Get('requests')
   async getFriendRequests(
     @Req() request: AuthorizedRequest,
@@ -55,11 +58,13 @@ export class FriendsController {
     return this.friendsService.getFriendRequests(request.user, params);
   }
 
+  @Auth('user')
   @Get()
   async getFriends(@Req() request: AuthorizedRequest) {
     return this.friendsService.getFriends(request.user);
   }
 
+  @Auth('user')
   @Delete(':id')
   async removeFriend(
     @Req() request: AuthorizedRequest,
@@ -68,6 +73,7 @@ export class FriendsController {
     return this.friendsService.removeFriend(request.user, friendId);
   }
 
+  @Auth('user')
   @Post('block')
   async blockUser(
     @Req() request: AuthorizedRequest,
@@ -76,6 +82,7 @@ export class FriendsController {
     return this.friendsService.blockUser(request.user, blockUserDto);
   }
 
+  @Auth('user')
   @Delete('block/:id')
   async unblockUser(
     @Req() request: AuthorizedRequest,
@@ -84,6 +91,7 @@ export class FriendsController {
     return this.friendsService.unblockUser(request.user, userId);
   }
 
+  @Auth('user')
   @Get('block')
   async getBlockedUsers(@Req() request: AuthorizedRequest) {
     return this.friendsService.getBlockedUsers(request.user);

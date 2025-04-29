@@ -9,7 +9,7 @@ import {
 import { User } from './user.entity';
 
 @Entity()
-@Unique(['blockerId', 'blockedId'])
+@Unique(['blocker', 'blocked'])
 export class Blocklist {
   @PrimaryGeneratedColumn('identity', { generatedIdentity: 'ALWAYS' })
   id: number;
