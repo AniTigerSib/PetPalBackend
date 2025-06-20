@@ -94,6 +94,7 @@ export class AuthService {
 
     // TODO: add logging
 
+    this.logger.log(`User ${user.username} successfully logged in`);
     return {
       accessToken,
       refreshToken,
@@ -156,6 +157,7 @@ export class AuthService {
     try {
       await this.usersService.shiftTokenVersion(userId);
       await this.tokenRepository.update({ id: userId }, { revoked: true });
+      this.logger.log(`User ${userId} successfully logged out`);
     } catch (error) {
       this.logger.error(error);
       throw new InternalServerErrorException();

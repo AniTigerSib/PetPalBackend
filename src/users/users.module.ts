@@ -4,7 +4,6 @@ import { UsersController } from './users.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import { OauthAccount } from './entities/oauth-account.entity';
-import { Profile } from './entities/users-profile.entity';
 import { HashingService } from 'src/common/hashing/hashing.service';
 import { BcryptService } from 'src/common/hashing/bcrypt.service';
 import { Role } from './entities/role.entity';
@@ -19,7 +18,6 @@ import { Blocklist } from './entities/blocklist.entity';
     TypeOrmModule.forFeature([
       User,
       OauthAccount,
-      Profile,
       Role,
       Permission,
       FriendRequest,

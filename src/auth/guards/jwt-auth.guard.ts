@@ -39,10 +39,10 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 
       // Extract token from header
       const token = this.extractTokenFromHeader(request);
+
       if (!token) {
         throw new UnauthorizedException('No token provided');
       }
-
       const { user } = await this.tokenService.verifyToken(token, {
         fullVerification: true,
       });

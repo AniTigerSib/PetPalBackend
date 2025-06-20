@@ -2,15 +2,12 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
-  OneToOne,
-  JoinColumn,
   CreateDateColumn,
   OneToMany,
   UpdateDateColumn,
   ManyToMany,
   JoinTable,
 } from 'typeorm';
-import { Profile } from './users-profile.entity';
 import { RefreshToken } from '../../auth/entities/refresh-token.entity';
 import { OauthAccount } from './oauth-account.entity';
 import { Role } from './role.entity';
@@ -37,6 +34,15 @@ export class User {
   @Column({ nullable: true, length: 50 })
   lastName: string;
 
+  @Column({ nullable: true, type: 'varchar', length: 20 })
+  phone: string;
+
+  @Column({ nullable: true, type: 'text' })
+  profileImage: string;
+
+  @Column({ nullable: true, type: 'text' })
+  bio: string;
+
   @ManyToMany(() => Role, (role) => role.users)
   @JoinTable()
   roles: Role[];
@@ -59,10 +65,6 @@ export class User {
 
   @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt: Date;
-
-  @OneToOne(() => Profile, { onUpdate: 'CASCADE', onDelete: 'SET NULL' })
-  @JoinColumn()
-  profile: Profile;
 
   @OneToMany(() => RefreshToken, (refreshToken) => refreshToken.user)
   refreshTokens: RefreshToken[];

@@ -8,7 +8,7 @@ import jwtConfig from './config/jwt.config';
 import { JwtModule } from '@nestjs/jwt';
 import { HashingService } from 'src/common/hashing/hashing.service';
 import { BcryptService } from 'src/common/hashing/bcrypt.service';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
+// import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { UsersModule } from 'src/users/users.module';
 import { TokenModule } from 'src/token/token.module';
 
@@ -27,8 +27,6 @@ import { TokenModule } from 'src/token/token.module';
       useClass: BcryptService,
     },
     AuthService,
-    JwtAuthGuard,
   ],
-  exports: [JwtAuthGuard],
 })
 export class AuthModule {}

@@ -21,6 +21,7 @@ import {
 } from './dto/friend-request.dto';
 import { BlockUserDto } from './dto/blocklist.dto';
 import UserPayload from '../auth/interfaces/user-payload.interface';
+import IFriendUser from './interfaces/friend-user.interface';
 
 @Injectable()
 export class FriendsService {
@@ -38,7 +39,7 @@ export class FriendsService {
   async sendFriendRequest(
     currentUser: UserPayload,
     createFriendRequestDto: CreateFriendRequestDto,
-  ) {
+  ): Promise<FriendRequest> {
     try {
       const { receiverId } = createFriendRequestDto;
 
@@ -180,7 +181,7 @@ export class FriendsService {
     }
   }
 
-  async getFriends(currentUser: UserPayload) {
+  async getFriends(currentUser: UserPayload): Promise<IFriendUser[]> {
     try {
       const acceptedRequests = await this.friendRequestRepository.find({
         where: [
@@ -195,19 +196,19 @@ export class FriendsService {
         if (request.senderId === currentUser.id) {
           return {
             id: request.receiver.id,
+            profileImage: request.receiver.profileImage,
             username: request.receiver.username,
             firstName: request.receiver.firstName,
             lastName: request.receiver.lastName,
-            email: request.receiver.email,
             friendSince: request.updatedAt,
           };
         } else {
           return {
             id: request.sender.id,
+            profileImage: request.receiver.profileImage,
             username: request.sender.username,
             firstName: request.sender.firstName,
             lastName: request.sender.lastName,
-            email: request.sender.email,
             friendSince: request.updatedAt,
           };
         }

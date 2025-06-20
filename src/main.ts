@@ -17,7 +17,11 @@ async function bootstrap() {
     }),
   );
 
-  app.enableCors();
+  app.enableCors({
+    origin: 'http://localhost:5173', // or '*' for testing
+    credentials: true,
+    allowedHeaders: ['Authorization', 'Content-Type'],
+  });
 
   const config = new DocumentBuilder()
     .setTitle('PetPal API')

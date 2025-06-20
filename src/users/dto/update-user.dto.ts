@@ -22,4 +22,14 @@ export class UpdateUserDto {
   @IsString()
   @MaxLength(50)
   lastName: string;
+
+  // TODO: implement separate complete method
+  // @IsOptional()
+  // @IsString()
+  // @MaxLength(20)
+  // phone: string;
+
+  @IsOptional()
+  @IsString()
+  bio: string;
 }

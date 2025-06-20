@@ -1,28 +1,34 @@
 import {
-  BadRequestException,
   ConflictException,
   HttpException,
   Injectable,
   InternalServerErrorException,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import {
   FindOptionsRelations,
   FindOptionsSelect,
+  Not,
   Repository,
   UpdateResult,
 } from 'typeorm';
 import { CreateUserDto } from './dto/create-user.dto';
-import { Profile } from './entities/users-profile.entity';
 // import { OauthAccount } from './entities/oauth-account.entity';
-import { ProfileDto } from './dto/profile.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { HashingService } from 'src/common/hashing/hashing.service';
 import { TokenInfoDto } from './dto/token-info.dto';
 import { ROLES } from './constants/roles.constant';
 import { Role } from './entities/role.entity';
+import IAccountUser from './interfaces/account-user.interface';
+import IProfileUser from './interfaces/profile-user.interface';
+import { PROFILE_USER_SELECT } from './constants/profile-select.constant';
+import {
+  FriendRequest,
+  FriendRequestStatus,
+} from './entities/friend-request.entity';
 // import { Profile as GProfile } from 'passport-google-oauth20';
 
 @Injectable()
@@ -30,10 +36,10 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    @InjectRepository(Profile)
-    private readonly profileRepository: Repository<Profile>,
     @InjectRepository(Role)
     private readonly roleRepository: Repository<Role>,
+    @InjectRepository(FriendRequest)
+    private friendRequestRepository: Repository<FriendRequest>,
     // @InjectRepository(OauthAccount)
     // private readonly oauthAccountRepository: Repository<OauthAccount>,
     private readonly hashingService: HashingService,
@@ -56,6 +62,78 @@ export class UsersService {
     } catch (error) {
       this.logger.error(error);
       throw new InternalServerErrorException();
+    }
+  }
+
+  async getProfileById(id: number, searcherId: number): Promise<IProfileUser> {
+    try {
+      const user = await this.userRepository.findOne({
+        where: {
+          id,
+        },
+        select: {
+          ...PROFILE_USER_SELECT,
+        },
+      });
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      // Проверяем, являются ли пользователи друзьями
+      const friendRequest = await this.friendRequestRepository.findOne({
+        where: [
+          {
+            senderId: searcherId,
+            receiverId: id,
+          },
+        ],
+      });
+
+      const friendRequestRecieved = await this.friendRequestRepository.findOne({
+        where: [
+          {
+            senderId: id,
+            receiverId: searcherId,
+          },
+        ],
+      });
+
+      let friendStatus = '';
+      if (friendRequest) {
+        friendStatus = this.friendStatusToString(friendRequest.status);
+      } else if (friendRequestRecieved) {
+        friendStatus =
+          this.friendStatusToString(friendRequestRecieved.status) + 'Request';
+      }
+
+      // Формируем объект IProfileUser
+      const profileUser: IProfileUser = {
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        profileImage: user.profileImage,
+        username: user.username,
+        bio: user.bio,
+        friendStatus: friendStatus,
+        friendReqId: friendRequest?.id || friendRequestRecieved?.id || null,
+      };
+
+      return profileUser;
+    } catch (error) {
+      this.logger.error(error);
+      throw new InternalServerErrorException();
+    }
+  }
+
+  friendStatusToString(status: FriendRequestStatus): string {
+    if (status === FriendRequestStatus.ACCEPTED) {
+      return 'accepted';
+    } else if (status === FriendRequestStatus.PENDING) {
+      return 'pending';
+    } else if (status === FriendRequestStatus.REJECTED) {
+      return 'rejected';
+    } else {
+      return '';
     }
   }
 
@@ -97,6 +175,95 @@ export class UsersService {
     }
   }
 
+  async findUsersByName(
+    searchQuery: string,
+    select?: FindOptionsSelect<User>,
+    relations?: FindOptionsRelations<User>,
+  ): Promise<IAccountUser[]> {
+    try {
+      if (!searchQuery || searchQuery.trim() === '') {
+        return [];
+      }
+
+      const trimmedQuery = searchQuery.trim();
+
+      const queryBuilder = this.userRepository.createQueryBuilder('user');
+
+      // Поиск по firstName ИЛИ lastName
+      queryBuilder.where(
+        'user.firstName ILIKE :searchQuery OR user.lastName ILIKE :searchQuery',
+        {
+          searchQuery: `%${trimmedQuery}%`,
+        },
+      );
+
+      if (select) {
+        const selectFields = Object.keys(select).filter((key) => select[key]);
+        queryBuilder.select(selectFields.map((field) => `user.${field}`));
+      }
+
+      if (relations) {
+        const relationKeys = Object.keys(relations).filter(
+          (key) => relations[key],
+        );
+        relationKeys.forEach((relation) => {
+          queryBuilder.leftJoinAndSelect(`user.${relation}`, relation);
+        });
+      }
+
+      return (await queryBuilder.getMany()) as IAccountUser[];
+    } catch (error) {
+      this.logger.error(error);
+      throw new InternalServerErrorException();
+    }
+  }
+
+  // Альтернативный вариант с поиском по полному имени (firstName + lastName)
+  async findUsersByFullName(
+    searchQuery: string,
+    select?: FindOptionsSelect<User>,
+    relations?: FindOptionsRelations<User>,
+  ): Promise<IAccountUser[]> {
+    try {
+      if (!searchQuery || searchQuery.trim() === '') {
+        return [];
+      }
+
+      const trimmedQuery = searchQuery.trim();
+
+      const queryBuilder = this.userRepository.createQueryBuilder('user');
+
+      // Поиск по firstName, lastName или полному имени
+      queryBuilder.where(
+        `(user.firstName ILIKE :searchQuery 
+          OR user.lastName ILIKE :searchQuery 
+          OR CONCAT(user.firstName, ' ', user.lastName) ILIKE :searchQuery)`,
+        {
+          searchQuery: `%${trimmedQuery}%`,
+        },
+      );
+
+      if (select) {
+        const selectFields = Object.keys(select).filter((key) => select[key]);
+        queryBuilder.select(selectFields.map((field) => `user.${field}`));
+      }
+
+      if (relations) {
+        const relationKeys = Object.keys(relations).filter(
+          (key) => relations[key],
+        );
+        relationKeys.forEach((relation) => {
+          queryBuilder.leftJoinAndSelect(`user.${relation}`, relation);
+        });
+      }
+
+      return (await queryBuilder.getMany()) as IAccountUser[];
+    } catch (error) {
+      this.logger.error(error);
+      throw new InternalServerErrorException();
+    }
+  }
+
   private async createUser(createUserDto: CreateUserDto): Promise<User> {
     try {
       const userRole = await this.roleRepository.findOne({
@@ -107,6 +274,7 @@ export class UsersService {
       }
       const user = this.userRepository.create(createUserDto);
       user.roles = [userRole];
+      this.logger.log(`User ${user.username} successfully created`);
       return await this.userRepository.save(user);
     } catch (error) {
       this.logger.error(error);
@@ -156,24 +324,82 @@ export class UsersService {
   // }
 
   async updateUser(
-    token: TokenInfoDto,
+    userId: number,
     updateUserDto: UpdateUserDto,
-  ): Promise<UpdateResult> {
-    if (updateUserDto.username) {
-      const userExists = await this.userRepository.exists({
-        where: {
-          username: updateUserDto.username,
-        },
-      });
-      if (userExists) {
-        throw new ConflictException('User with such username already exists');
-      }
-    }
+  ): Promise<User | null> {
     try {
-      return await this.userRepository.update({ id: token.id }, updateUserDto);
+      // Используем QueryRunner для транзакции
+      const queryRunner =
+        this.userRepository.manager.connection.createQueryRunner();
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+
+      try {
+        // Проверяем существование пользователя для обновления
+        const existingUser = await queryRunner.manager.findOne(User, {
+          where: { id: userId },
+        });
+
+        if (!existingUser) {
+          await queryRunner.rollbackTransaction();
+          return null;
+        }
+
+        // Если обновляется username, проверяем уникальность
+        if (
+          updateUserDto.username &&
+          updateUserDto.username !== existingUser.username
+        ) {
+          const userWithSameUsername = await queryRunner.manager.findOne(User, {
+            where: {
+              username: updateUserDto.username,
+              id: Not(userId), // исключаем текущего пользователя
+            },
+          });
+
+          if (userWithSameUsername) {
+            await queryRunner.rollbackTransaction();
+            throw new ConflictException(
+              'User with such username already exists',
+            );
+          }
+        }
+
+        // Выполняем обновление и получаем результат
+        const updateResult = await queryRunner.manager.update(
+          User,
+          { id: userId },
+          updateUserDto,
+        );
+
+        // Проверяем, что обновление действительно произошло
+        if (updateResult.affected === 0) {
+          await queryRunner.rollbackTransaction();
+          return null;
+        }
+
+        // Получаем обновленного пользователя
+        const updatedUser = await queryRunner.manager.findOne(User, {
+          where: { id: userId },
+        });
+
+        await queryRunner.commitTransaction();
+        return updatedUser;
+      } catch (error) {
+        await queryRunner.rollbackTransaction();
+        throw error;
+      } finally {
+        await queryRunner.release();
+      }
     } catch (error) {
-      this.logger.error(error);
-      throw new InternalServerErrorException();
+      this.logger.error('Error updating user:', error);
+
+      // Если это уже наша бизнес-ошибка, пробрасываем как есть
+      if (error instanceof ConflictException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Failed to update user');
     }
   }
 
@@ -209,96 +435,7 @@ export class UsersService {
     }
 
     try {
-      if (user.profile) {
-        await this.profileRepository.delete({ id: user.profile.id });
-      }
       return await this.userRepository.delete({ id: user.id });
-    } catch (error) {
-      this.logger.error(error);
-      throw new InternalServerErrorException();
-    }
-  }
-
-  async createProfileSecure(
-    token: TokenInfoDto,
-    profileDto: ProfileDto,
-  ): Promise<Profile> {
-    let user = await this.userRepository.findOne({
-      where: { id: token.id },
-      relations: ['profile'],
-    });
-
-    if (!user) {
-      this.logger.error(
-        'User validated, but not found',
-        'createProfileSecure',
-        `UID: ${token.id.toString()}`,
-      );
-      throw new InternalServerErrorException();
-    }
-
-    if (user.profile) {
-      throw new BadRequestException('Profile already exists');
-    }
-
-    try {
-      let profile = this.profileRepository.create(profileDto);
-      profile = await this.profileRepository.save(profile);
-      user.profile = profile;
-      user = await this.userRepository.save(user);
-      return profile;
-    } catch (error) {
-      this.logger.error(error);
-      throw new InternalServerErrorException();
-    }
-  }
-
-  private async createProfile(
-    user: User,
-    profileDto: ProfileDto,
-  ): Promise<Profile> {
-    try {
-      let profile = this.profileRepository.create(profileDto);
-      profile = await this.profileRepository.save(profile);
-      user.profile = profile;
-      user = await this.userRepository.save(user);
-      return profile;
-    } catch (error) {
-      this.logger.error(error);
-      throw new InternalServerErrorException();
-    }
-  }
-
-  async updateProfile(
-    token: TokenInfoDto,
-    profileDto: ProfileDto,
-  ): Promise<UpdateResult | Profile> {
-    // TODO: check if DTO is empty
-    const user = await this.userRepository.findOne({
-      where: { id: token.id },
-      relations: ['profile'],
-    });
-
-    if (!user) {
-      this.logger.error(
-        'User validated, but not found',
-        'updateProfile',
-        `UID: ${token.id.toString()}`,
-      );
-      throw new InternalServerErrorException();
-    }
-
-    if (!user.profile) {
-      return this.createProfile(user, profileDto);
-    }
-
-    try {
-      return this.profileRepository.update(
-        {
-          id: user.profile.id,
-        },
-        profileDto,
-      );
     } catch (error) {
       this.logger.error(error);
       throw new InternalServerErrorException();
