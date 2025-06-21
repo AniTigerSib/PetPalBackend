@@ -22,6 +22,10 @@ import {
 import { BlockUserDto } from './dto/blocklist.dto';
 import UserPayload from '../auth/interfaces/user-payload.interface';
 import IFriendUser from './interfaces/friend-user.interface';
+import {
+  PaginatedResponse,
+  PaginationDto,
+} from 'src/common/dto/pagination.dto';
 
 @Injectable()
 export class FriendsService {
@@ -181,18 +185,50 @@ export class FriendsService {
     }
   }
 
-  async getFriends(currentUser: UserPayload): Promise<IFriendUser[]> {
+  async getFriends(
+    currentUser: UserPayload,
+    paginationDto: PaginationDto,
+  ): Promise<PaginatedResponse<IFriendUser>> {
     try {
-      const acceptedRequests = await this.friendRequestRepository.find({
-        where: [
-          { senderId: currentUser.id, status: FriendRequestStatus.ACCEPTED },
-          { receiverId: currentUser.id, status: FriendRequestStatus.ACCEPTED },
-        ],
-        relations: ['sender', 'receiver'],
-      });
+      const { page = 1, limit = 10 } = paginationDto;
+      const offset = (page - 1) * limit;
+
+      // Получаем общее количество друзей
+      const totalQuery = this.friendRequestRepository
+        .createQueryBuilder('request')
+        .where('request.status = :status', {
+          status: FriendRequestStatus.ACCEPTED,
+        })
+        .andWhere(
+          '(request.senderId = :userId OR request.receiverId = :userId)',
+          {
+            userId: currentUser.id,
+          },
+        );
+
+      const total = await totalQuery.getCount();
+
+      // Получаем друзей с пагинацией
+      const acceptedRequests = await this.friendRequestRepository
+        .createQueryBuilder('request')
+        .leftJoinAndSelect('request.sender', 'sender')
+        .leftJoinAndSelect('request.receiver', 'receiver')
+        .where('request.status = :status', {
+          status: FriendRequestStatus.ACCEPTED,
+        })
+        .andWhere(
+          '(request.senderId = :userId OR request.receiverId = :userId)',
+          {
+            userId: currentUser.id,
+          },
+        )
+        .orderBy('request.updatedAt', 'DESC')
+        .skip(offset)
+        .take(limit)
+        .getMany();
 
       // Формируем список друзей
-      return acceptedRequests.map((request) => {
+      const friends = acceptedRequests.map((request) => {
         if (request.senderId === currentUser.id) {
           return {
             id: request.receiver.id,
@@ -205,7 +241,7 @@ export class FriendsService {
         } else {
           return {
             id: request.sender.id,
-            profileImage: request.receiver.profileImage,
+            profileImage: request.sender.profileImage,
             username: request.sender.username,
             firstName: request.sender.firstName,
             lastName: request.sender.lastName,
@@ -213,6 +249,20 @@ export class FriendsService {
           };
         }
       });
+
+      const totalPages = Math.ceil(total / limit);
+
+      return {
+        data: friends,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+          hasNext: page < totalPages,
+          hasPrev: page > 1,
+        },
+      };
     } catch (error) {
       this.logger.error(error);
       throw new InternalServerErrorException('Failed to get friends');

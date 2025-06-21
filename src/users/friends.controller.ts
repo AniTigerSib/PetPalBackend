@@ -19,6 +19,7 @@ import {
 } from './dto/friend-request.dto';
 import { BlockUserDto } from './dto/blocklist.dto';
 import { Auth } from '../auth/decorators/auth.decorator';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
 
 @Controller('friends')
 @Auth('user')
@@ -60,8 +61,11 @@ export class FriendsController {
 
   @Auth('user')
   @Get()
-  async getFriends(@Req() request: AuthorizedRequest) {
-    return this.friendsService.getFriends(request.user);
+  async getFriends(
+    @Req() request: AuthorizedRequest,
+    @Query() paginationDto: PaginationDto,
+  ) {
+    return this.friendsService.getFriends(request.user, paginationDto);
   }
 
   @Auth('user')
